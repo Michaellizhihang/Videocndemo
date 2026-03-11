@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>YouTube Simulator</title>
+   <script src="https://cdn.tailwindcss.com"></script>
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+   <style>
+       @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap');
+
+       body {
+           font-family: 'Roboto', sans-serif;
+           background-color: #0f0f0f;
+           color: white;
+           overflow-x: hidden;
+       }
+
+       /* Custom Scrollbar */
+       ::-webkit-scrollbar {
+           width: 8px;
+           height: 8px;
+       }
+       ::-webkit-scrollbar-track {
+           background: #0f0f0f; 
+       }
+       ::-webkit-scrollbar-thumb {
+           background: #717171; 
+           border-radius: 4px;
+       }
+       ::-webkit-scrollbar-thumb:hover {
+           background: #a0a0a0; 
+       }
+
+       .video-card:hover .thumbnail {
+           border-radius: 0;
+       }
+       .thumbnail {
+           transition: border-radius 0.2s ease;
+       }
+
+       .sidebar-item:hover {
+           background-color: #272727;
+       }
+
+       /* Animations */
+       @keyframes fadeIn {
+           from { opacity: 0; transform: translateY(10px); }
+           to { opacity: 1; transform: translateY(0); }
+       }
+       .animate-fade-in {
+           animation: fadeIn 0.4s ease-out forwards;
+       }
+
+       .play-overlay {
+           opacity: 0;
+           transition: opacity 0.2s;
+       }
+       .video-card:hover .play-overlay {
+           opacity: 1;
+       }
+
+       /* Hide scrollbar for category list but allow scroll */
+       .no-scrollbar::-webkit-scrollbar {
+           display: none;
+       }
+       .no-scrollbar {
+           -ms-overflow-style: none;
+           scrollbar-width: none;
+       }
+   </style>
+</head>
+<body class="h-screen flex flex-col">
+
+   <!-- Top Navigation -->
+   <nav class="fixed top-0 w-full h-14 bg-[#0f0f0f] flex items-center justify-between px-4 z-50 border-b border-[#272727]">
+       <!-- Left: Menu & Logo -->
+       <div class="flex items-center gap-4">
+           <button class="p-2 hover:bg-[#272727] rounded-full transition">
+               <i class="fas fa-bars text-white text-lg"></i>
+           </button>
+           <div class="flex items-center gap-1 cursor-pointer" onclick="app.goHome()">
+               <i class="fab fa-youtube text-red-600 text-3xl"></i>
+               <span class="text-xl font-bold tracking-tighter">YouTube</span>
+               <span class="text-[10px] text-gray-400 relative -top-2 left-1">CN</span>
+           </div>
+       </div>
+
+       <!-- Center: Search -->
+       <div class="hidden md:flex items-center flex-1 max-w-2xl ml-10">
+           <div class="flex w-full">
+               <input type="text" id="search-input" placeholder="搜索" class="w-full bg-[#121212] border border-[#303030] rounded-l-full py-2 px-4 text-white focus:outline-none focus:border-blue-500 focus:shadow-[0_0_0_1px_#3ea6ff]">
+               <button onclick="app.handleSearch()" class="bg-[#222222] border border-l-0 border-[#303030] rounded-r-full px-5 hover:bg-[#303030] transition">
+                   <i class="fas fa-search text-gray-300"></i>
+               </button>
+           </div>
+           <button class="ml-4 bg-[#181818] p-2.5 rounded-full hover:bg-[#303030] transition">
+               <i class="fas fa-microphone text-white"></i>
+           </button>
+       </div>
+
+       <!-- Right: User Actions -->
+       <div class="flex items-center gap-3">
+           <button class="p-2 hover:bg-[#272727] rounded-full transition hidden sm:block">
+               <i class="fas fa-video text-white"></i>
+           </button>
+           <button class="p-2 hover:bg-[#272727] rounded-full transition hidden sm:block">
+               <i class="fas fa-th text-white"></i>
+           </button>
+           <button class="p-2 hover:bg-[#272727] rounded-full transition hidden sm:block">
+               <i class="fas fa-bell text-white"></i>
+           </button>
+           <div class="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer ml-2">
+               U
+           </div>
+       </div>
+   </nav>
+
+   <!-- Main Layout -->
+   <div class="flex flex-1 pt-14 h-full">
+       
+       <!-- Sidebar -->
+       <aside class="w-20 lg:w-60 bg-[#0f0f0f] h-full fixed left-0 top-14 overflow-y-auto hidden md:flex flex-col pb-20 z-40">
+           <div class="sidebar-item flex flex-col lg:flex-row items-center lg:items-start lg:px-6 py-4 cursor-pointer rounded-lg mx-2 bg-[#272727]">
+               <i class="fas fa-home text-white text-lg lg:mr-6"></i>
+               <span class="text-[10px] lg:text-sm font-medium mt-1 lg:mt-0">首页</span>
+           </div>
+           <div class="sidebar-item flex flex-col lg:flex-row items-center lg:items-start lg:px-6 py-4 cursor-pointer rounded-lg mx-2">
+               <i class="fas fa-fire text-gray-400 text-lg lg:mr-6"></i>
+               <span class="text-[10px] lg:text-sm font-medium mt-1 lg:mt-0 text-gray-400">Shorts</span>
+           </div>
+           <div class="sidebar-item flex flex-col lg:flex-row items-center lg:items-start lg:px-6 py-4 cursor-pointer rounded-lg mx-2">
+               <i class="fas fa-photo-video text-gray-400 text-lg lg:mr-6"></i>
+               <span class="text-[10px] lg:text-sm font-medium mt-1 lg:mt-0 text-gray-400">订阅内容</span>
+           </div>
+           
+           <div class="border-t border-[#272727] my-2 mx-2"></div>
+
+           <div class="sidebar-item flex flex-col lg:flex-row items-center lg:items-start lg:px-6 py-3 cursor-pointer rounded-lg mx-2">
+               <span class="hidden lg:block text-base font-medium text-white mr-auto">你</span>
+               <i class="fas fa-chevron-right text-gray-400 text-xs lg:hidden"></i>
+           </div>
+           <div class="sidebar-item flex flex-col lg:flex-row items-center lg:items-start lg:px-6 py-3 cursor-pointer rounded-lg mx-2">
+               <i class="fas fa-user-circle text-gray-400 text-lg lg:mr-6"></i>
+               <span class="text-[10px] lg:text-sm font-medium mt-1 lg:mt-0 text-gray-400">你的频道</span>
+           </div>
+           <div class="sidebar-item flex flex-col lg:flex-row items-center lg:items-start lg:px-6 py-3 cursor-pointer rounded-lg mx-2">
+               <i class="fas fa-history text-gray-400 text-lg lg:mr-6"></i>
+               <span class="text-[10px] lg:text-sm font-medium mt-1 lg:mt-0 text-gray-400">历史记录</span>
+           </div>
+           <div class="sidebar-item flex flex-col lg:flex-row items-center lg:items-start lg:px-6 py-3 cursor-pointer rounded-lg mx-2">
+               <i class="fas fa-clock text-gray-400 text-lg lg:mr-6"></i>
+               <span class="text-[10px] lg:text-sm font-medium mt-1 lg:mt-0 text-gray-400">稍后观看</span>
+           </div>
+       </aside>
+
+       <!-- Content Area -->
+       <main class="flex-1 ml-0 md:ml-20 lg:ml-60 w-full h-full overflow-y-auto bg-[#0f0f0f]" id="main-container">
+           
+           <!-- Categories -->
+           <div class="sticky top-0 bg-[#0f0f0f] z-30 py-3 px-4 border-b border-[#272727]">
+               <div class="flex gap-3 overflow-x-auto no-scrollbar" id="category-list">
+                   <!-- Categories injected via JS -->
+               </div>
+           </div>
+
+           <!-- Video Grid -->
+           <div id="video-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-y-8 gap-x-4 p-4 pb-20">
+               <!-- Videos injected via JS -->
+           </div>
+
+           <!-- Player View (Hidden by default) -->
+           <div id="player-view" class="hidden min-h-screen bg-[#0f0f0f] p-4 lg:p-8 animate-fade-in">
+               <div class="flex flex-col lg:flex-row gap-6">
+                   <!-- Main Player -->
+                   <div class="flex-1 lg:w-2/3">
+                       <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden group shadow-2xl shadow-black/50">
+                           <img id="player-thumb" src="" class="w-full h-full object-cover opacity-80">
+                           <div class="absolute inset-0 flex items-center justify-center">
+                               <div class="w-16 h-16 bg-black/60 rounded-full flex items-center justify-center backdrop-blur-sm cursor-pointer hover:scale-110 transition border border-white/20">
+                                   <i class="fas fa-play text-white text-2xl ml-1"></i>
+                               </div>
+                           </div>
+                           <!-- Fake Controls -->
+                           <div class="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/80 to-transparent flex items-end px-4 pb-2 gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                               <i class="fas fa-play text-white"></i>
+                               <div class="flex-1 h-1 bg-gray-600 rounded-full relative">
+                                   <div class="absolute left-0 top-0 h-full w-1/3 bg-red-600 rounded-full"></div>
+                               </div>
+                               <span class="text-xs text-white">4:20 / 12:45</span>
+                               <i class="fas fa-volume-up text-white"></i>
+                               <i class="fas fa-cog text-white"></i>
+                               <i class="fas fa-expand text-white"></i>
+                           </div>
+                       </div>
+                       
+                       <h1 id="player-title" class="text-xl font-bold mt-4 text-white"></h1>
+                       <div class="flex flex-col sm:flex-row sm:items-center justify-between mt-2 gap-4">
+                           <div class="flex items-center gap-3">
+                               <div class="w-10 h-10 bg-gray-700 rounded-full overflow-hidden">
+                                   <img id="player-avatar" src="" class="w-full h-full object-cover">
+                               </div>
+                               <div>
+                                   <div id="player-channel" class="font-bold text-white text-sm"></div>
+                                   <div class="text-xs text-gray-400">1.2M 订阅者</div>
+                               </div>
+                               <button class="ml-4 bg-white text-black px-4 py-2 rounded-full font-medium text-sm hover:bg-gray-200 transition">订阅</button>
+                           </div>
+                           <div class="flex gap-2">
+                               <button class="bg-[#272727] hover:bg-[#3f3f3f] text-white px-4 py-2 rounded-full flex items-center gap-2 font-medium text-sm transition">
+                                   <i class="fas fa-thumbs-up"></i> <span id="player-likes">12K</span>
+                               </button>
+                               <button class="bg-[#272727] hover:bg-[#3f3f3f] text-white px-4 py-2 rounded-full flex items-center gap-2 font-medium text-sm transition">
+                                   <i class="fas fa-share"></i> 分享
+                               </button>
+                               <button class="bg-[#272727] hover:bg-[#3f3f3f] text-white px-4 py-2 rounded-full flex items-center gap-2 font-medium text-sm transition">
+                                   <i class="fas fa-download"></i> 下载
+                               </button>
+                           </div>
+                       </div>
+                       
+                       <div class="bg-[#272727] rounded-xl p-3 mt-4 cursor-pointer hover:bg-[#3f3f3f] transition">
+                           <div class="flex gap-2 text-sm font-bold">
+                               <span id="player-views">120K 次观看</span>
+                               <span id="player-date">2天前</span>
+                           </div>
+                           <p class="text-sm text-gray-300 mt-1 line-clamp-2">
+                               这是一个模拟的视频描述。在这个视频中，我们探讨了如何构建令人惊叹的Web应用程序。感谢观看！
+                               #WebDev #Coding #Tutorial
+                           </p>
+                           <span class="text-sm font-bold text-gray-300 mt-1 block">显示更多</span>
+                       </div>
+                   </div>
+
+                   <!-- Up Next -->
+                   <div class="lg:w-1/3">
+                       <div class="flex justify-between items-center mb-4">
+                           <h3 class="font-bold text-lg">接下来播放</h3>
+                           <div class="flex items-center gap-2 text-sm font-medium">
+                               <span class="uppercase tracking-wider">自动播放</span>
+                               <div class="w-8 h-4 bg-gray-600 rounded-full relative cursor-pointer">
+                                   <div class="absolute right-0.5 top-0.5 w-3 h-3 bg-white rounded-full"></div>
+                               </div>
+                           </div>
+                       </div>
+                       <div id="up-next-list" class="flex flex-col gap-3">
+                           <!-- Up next videos injected here -->
+                       </div>
+                   </div>
+               </div>
+           </div>
+
+       </main>
+   </div>
+
+   <script>
+       // --- Data Simulation ---
+       const categories = ["全部", "游戏", "音乐", "直播", "新闻", "编程", "科幻电影", "烹饪节目", "最近上传", "为你推荐", "混音", "足球", "素描", "旅游"];
+       
+       const channels = [
+           { name: "Tech Vision", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tech" },
+           { name: "Cooking Master", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Cook" },
+           { name: "Game Play", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Game" },
+           { name: "Music Hub", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Music" },
+           { name: "Daily Vlogs", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Vlog" },
+           { name: "Science Daily", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Science" }
+       ];
+
+       const videoTitles = [
+           "学习 React 的 10 个技巧 - 2024 完整教程",
+           "10分钟做出美味的意大利面",
+           "赛博朋克 2077：光线追踪全开体验",
+           "为什么猫咪喜欢盒子？科学解释",
+           "Lo-Fi Hip Hop Radio - Beats to Relax/Study to",
+           "SpaceX 星舰发射全程回顾",
+           "我尝试了一周每天只睡4小时...",
+           "如何在家制作完美的咖啡",
+           "2024年最值得购买的笔记本电脑",
+           "冥想指南：初学者必看",
+           "城市夜景航拍 - 4K HDR",
+           "Python vs JavaScript：你该学哪个？"
+       ];
+
+       // Unsplash Image IDs for realistic thumbnails
+       const thumbIds = [
+           "1504639725590", "1518770660439-4636190af475", "1550745165-9bc0b252726f", 
+           "1531297461405-21f1d1c6b8f5", "1498050108023-c5249f4df085", "1526374965328-7f61d4dc18c5",
+           "1519389950476-29a8e752cc80", "1461749280628-7f3c777dc4f1", "1516321318423-f06f85e504b3",
+           "1470071459604-3b5ec3a7fe05", "1511707171634-5f897ff02aa9", "1550751827-4bd374c3f58b"
+       ];
+
+       // --- Application Logic ---
+       const app = {
+           state: {
+               videos: [],
+               currentCategory: "全部",
+               searchQuery: ""
+           },
+
+           init() {
+               this.generateVideos(24); // Generate 24 mock videos
+               this.renderCategories();
+               this.renderGrid();
+               
+               // Search Listener
+               document.getElementById('search-input').addEventListener('keypress', (e) => {
+                   if (e.key === 'Enter') this.handleSearch();
+               });
+           },
+
+           generateVideos(count) {
+               for (let i = 0; i < count; i++) {
+                   const channel = channels[Math.floor(Math.random() * channels.length)];
+                   const title = videoTitles[Math.floor(Math.random() * videoTitles.length)];
+                   const thumbId = thumbIds[i % thumbIds.length];
+                   
+                   this.state.videos.push({
+                       id: i,
+                       title: title,
+                       channel: channel.name,
+                       avatar: channel.avatar,
+                       views: Math.floor(Math.random() * 900) + 100 + "K",
+                       date: Math.floor(Math.random() * 11) + 1 + "个月前",
+                       duration: Math.floor(Math.random() * 10) + 1 + ":" + Math.floor(Math.random() * 50 + 10),
+                       thumbnail: `https://images.unsplash.com/photo-${thumbId}?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80`,
+                       category: categories[Math.floor(Math.random() * (categories.length - 1)) + 1] // Random category excluding "All"
+                   });
+               }
+           },
+
+           renderCategories() {
+               const container = document.getElementById('category-list');
+               container.innerHTML = categories.map(cat => `
+                   <button onclick="app.setCategory('${cat}')" 
+                       class="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition ${this.state.currentCategory === cat ? 'bg-white text-black' : 'bg-[#272727] text-white hover:bg-[#3f3f3f]'}">
+                       ${cat}
+                   </button>
+               `).join('');
+           },
+
+           setCategory(cat) {
+               this.state.currentCategory = cat;
+               this.renderCategories();
+               this.renderGrid();
+           },
+
+           handleSearch() {
+               const query = document.getElementById('search-input').value.toLowerCase();
+               this.state.searchQuery = query;
+               this.renderGrid();
+           },
+
+           goHome() {
+               this.state.searchQuery = "";
+               this.state.currentCategory = "全部";
+               document.getElementById('search-input').value = "";
+               document.getElementById('player-view').classList.add('hidden');
+               document.getElementById('video-grid').classList.remove('hidden');
+               document.querySelector('.sticky.top-0').classList.remove('hidden');
+               this.renderCategories();
+               this.renderGrid();
+           },
+
+           renderGrid() {
+               const grid = document.getElementById('video-grid');
+               grid.innerHTML = "";
+
+               // Filter Logic
+               let filtered = this.state.videos;
+               if (this.state.currentCategory !== "全部") {
+                   // Simple pseudo-filter for demo purposes
+                   filtered = filtered.filter((_, index) => index % categories.length === categories.indexOf(this.state.currentCategory));
+                   if(filtered.length === 0) filtered = this.state.videos.slice(0, 4); // Fallback
+               }
+               if (this.state.searchQuery) {
+                   filtered = filtered.filter(v => v.title.toLowerCase().includes(this.state.searchQuery));
+               }
+
+               // Render Cards
+               filtered.forEach(video => {
+                   const card = document.createElement('div');
+                   card.className = "video-card flex flex-col gap-3 cursor-pointer group animate-fade-in";
+                   card.onclick = () => this.openVideo(video);
+                   card.innerHTML = `
+                       <div class="relative aspect-video rounded-xl overflow-hidden bg-gray-800">
+                           <img src="${video.thumbnail}" class="thumbnail w-full h-full object-cover">
+                           <div class="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-1.5 py-0.5 rounded font-medium">
+                               ${video.duration}
+                           </div>
+                           <div class="play-overlay absolute inset-0 bg-black/20 flex items-center justify-center">
+                               <i class="fas fa-play text-white text-3xl drop-shadow-lg"></i>
+                           </div>
+                       </div>
+                       <div class="flex gap-3 px-1">
+                           <img src="${video.avatar}" class="w-9 h-9 rounded-full bg-gray-700 flex-shrink-0">
+                           <div class="flex flex-col">
+                               <h3 class="text-white font-semibold text-sm leading-tight line-clamp-2 group-hover:text-blue-400 transition-colors">${video.title}</h3>
+                               <div class="text-gray-400 text-xs mt-1 hover:text-white transition-colors">${video.channel} <i class="fas fa-check-circle text-[10px] ml-0.5"></i></div>
+                               <div class="text-gray-400 text-xs">${video.views}次观看 • ${video.date}</div>
+                           </div>
+                           <button class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-white">
+                               <i class="fas fa-ellipsis-v text-xs"></i>
+                           </button>
+                       </div>
+                   `;
+                   grid.appendChild(card);
+               });
+           },
+
+           openVideo(video) {
+               // Hide Grid, Show Player
+               document.getElementById('video-grid').classList.add('hidden');
+               document.querySelector('.sticky.top-0').classList.add('hidden'); // Hide categories
+               const playerView = document.getElementById('player-view');
+               playerView.classList.remove('hidden');
+               
+               // Scroll to top
+               document.getElementById('main-container').scrollTop = 0;
+
+               // Populate Player Data
+               document.getElementById('player-thumb').src = video.thumbnail;
+               document.getElementById('player-title').innerText = video.title;
+               document.getElementById('player-channel').innerText = video.channel;
+               document.getElementById('player-avatar').src = video.avatar;
+               document.getElementById('player-views').innerText = video.views + " 次观看";
+               document.getElementById('player-date').innerText = video.date;
+               document.getElementById('player-likes').innerText = (Math.floor(Math.random() * 50) + 1) + "K";
+
+               // Generate Up Next List (exclude current)
+               const upNextContainer = document.getElementById('up-next-list');
+               upNextContainer.innerHTML = "";
+               const others = this.state.videos.filter(v => v.id !== video.id).slice(0, 10);
+               
+               others.forEach(v => {
+                   upNextContainer.innerHTML += `
+                       <div class="flex gap-2 cursor-pointer group" onclick="app.openVideo(app.state.videos.find(i => i.id === ${v.id}))">
+                           <div class="relative w-40 h-24 flex-shrink-0 rounded-lg overflow-hidden">
+                               <img src="${v.thumbnail}" class="w-full h-full object-cover">
+                               <div class="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-1 rounded">${v.duration}</div>
+                           </div>
+                           <div class="flex flex-col py-1">
+                               <h4 class="text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors">${v.title}</h4>
+                               <div class="text-xs text-gray-400 mt-1">${v.channel}</div>
+                               <div class="text-xs text-gray-400">${v.views}次观看 • ${v.date}</div>
+                           </div>
+                       </div>
+                   `;
+               });
+           }
+       };
+
+       // Start App
+       document.addEventListener('DOMContentLoaded', () => {
+           app.init();
+       });
+
+   </script>
+</body>
+</html>
